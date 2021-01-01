@@ -14,28 +14,20 @@ cd $(dirname "$0")/..
 hash=$(calculate_hash $PWD "$PWD/../ci/")
 object=backend-lambda/${hash}/build.zip
 
-echo object=$object
+if ! s3_object_exists $LAMBDA_BUCKET $object; then
+  start_group "Installing dependencies"
+  npm ci
+  end_group
 
-# if ! s3_object_exists $LAMBDA_BUCKET $object; then
-#   start_group "Downloading redirect-lambda"
-#   ../redirect-lambda/ci/get.sh
-#   end_group
+  start_group "Building"
+  npm run build
+  end_group
 
-#   start_group "Installing dependencies"
-#   npm ci
-#   end_group
+  start_group "Uploading to s3://$LAMBDA_BUCKET/$object"
+  aws s3 cp build.zip "s3://$LAMBDA_BUCKET/$object"
+  end_group
+fi
 
-#   start_group "Testing"
-#   npm test
-#   end_group
+echo s3://$LAMBDA_BUCKET/$object
 
-#   start_group "Building"
-#   npm run build
-#   end_group
-
-#   start_group "Uploading to s3://$LAMBDA_BUCKET/$object"
-#   aws s3 cp build.zip "s3://$LAMBDA_BUCKET/$object"
-#   end_group
-# fi
-
-# echo $object > build.key
+echo $object > build.key

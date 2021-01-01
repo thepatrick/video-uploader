@@ -1,6 +1,5 @@
 import { APIGatewayProxyHandlerV2 } from 'aws-lambda';
-
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import { S3, Endpoint } from 'aws-sdk';
 import {
@@ -52,7 +51,7 @@ const sanitizeFileNames = (input: string) =>
     .toLocaleLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
 
-export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
+export const presenterInfo: APIGatewayProxyHandlerV2 = async (event, context) => {
   const presenter = event.pathParameters?.presenter;
 
   if (presenter === undefined || presenter.length === 0) {
@@ -79,6 +78,182 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
   };
 };
 
+const parseBody = (body: string | undefined): unknown | undefined => {
+  if (body === undefined) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(body) as unknown;
+  } catch (err) {
+    console.log('Failed to parse body', err);
+
+    return undefined;
+  }
+};
+
+export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
+  const token = (event.headers.Authorization || '').substring('Bearer '.length);
+  let decodedToken;
+  try {
+    decodedToken = verify(token, jwtPrivateKey);
+  } catch (err) {
+    console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (!isDecodedBeginJWT(decodedToken)) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
+    console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  const body = parseBody(event.body);
+
+  if (!isBeginBody(body, 'body') || body.presentationTitle.trim().length === 0 || body.fileName.trim().length === 0) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Invalid request' }) };
+  }
+
+  const version = Date.now();
+  const presenterName = sanitizeFileNames(decodedToken.name);
+  const presentationTitle = sanitizeFileNames(body.presentationTitle);
+
+  const objectName = `${presenterName}-${presentationTitle}-${version}${extname(body.fileName)}`;
+
+  const { UploadId } = await client.createMultipartUpload({ Bucket: bucket, Key: objectName }).promise();
+
+  return {
+    body: JSON.stringify({
+      token: sign({ iss: jwtAudience, aud: jwtAudience, sub: UploadId, objectName: objectName }, jwtPrivateKey, {
+        expiresIn: '24h',
+      }),
+    }),
+  };
+};
+
+export const signUploadURLs: APIGatewayProxyHandlerV2 = async (event, context) => {
+  const token = (event.headers.Authorization || '').substring('Bearer '.length);
+  let decodedToken;
+  try {
+    decodedToken = verify(token, jwtPrivateKey);
+  } catch (err) {
+    console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (!isDecodedUploadJWT(decodedToken)) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
+    console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  const body = parseBody(event.body);
+
+  if (!isSignBody(body, 'body') || body.parts === 0) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Invalid request' }) };
+  }
+
+  const promises = [];
+
+  for (let i = 0; i < body.parts; i++) {
+    promises.push(
+      client.getSignedUrlPromise('uploadPart', {
+        Bucket: bucket,
+        Key: decodedToken.objectName,
+        Expires: 30 * 60, // 30 minutes
+        UploadId: decodedToken.sub,
+        PartNumber: i + 1,
+      }),
+    );
+  }
+
+  const signedURLs = await Promise.all(promises);
+
+  console.log('Signed URLs:', signedURLs);
+
+  return { body: JSON.stringify({ signedURLs }) };
+};
+
+export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
+  const token = (event.headers.Authorization || '').substring('Bearer '.length);
+  let decodedToken;
+  try {
+    decodedToken = verify(token, jwtPrivateKey);
+  } catch (err) {
+    console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (!isDecodedUploadJWT(decodedToken)) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
+    console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  const uploadId = decodedToken.sub;
+  const objectName = decodedToken.objectName;
+
+  const body = parseBody(event.body);
+
+  if (!isFinishBody(body, 'body') || body.parts.length === 0) {
+    console.log('Body is not valid', body);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Invalid request' }) };
+  }
+
+  await client
+    .completeMultipartUpload({
+      Bucket: bucket,
+      Key: objectName,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: body.parts },
+    })
+    .promise();
+
+  return { body: JSON.stringify({ ok: true }) };
+};
+
+export const abandonUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
+  const token = (event.headers.Authorization || '').substring('Bearer '.length);
+  let decodedToken;
+  try {
+    decodedToken = verify(token, jwtPrivateKey);
+  } catch (err) {
+    console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (!isDecodedUploadJWT(decodedToken)) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
+    console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Access Denied' }) };
+  }
+
+  const uploadId = decodedToken.sub;
+  const objectName = decodedToken.objectName;
+
+  await client
+    .abortMultipartUpload({
+      Bucket: bucket,
+      Key: objectName,
+      UploadId: uploadId,
+    })
+    .promise();
+
+  return { body: JSON.stringify({ ok: true }) };
+};
+
 // interface AsyncRequestResponse<ResBody> {
 //   status?: number;
 //   body: ResBody;
@@ -101,200 +276,36 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
 //     .catch(next);
 // };
 
-// app.post(
-//   '/portal/:presenter',
-//   asyncHandler(async ({ params: { presenter } }) => {
-//     const portalRequest = await fetch(`${portal}/${presenter}.json`);
-
-//     const data = (await portalRequest.json()) as unknown;
-
-//     if (!isVeypearResponse(data)) {
-//       return { status: 400, body: 'Invalid response from portal' };
-//     }
-
-//     const paylaod = { iss: jwtAudience, aud: jwtAudience, sub: presenter, name: data.name };
-
-//     return {
-//       body: {
-//         ok: true,
-//         name: data.name,
-//         token: sign(paylaod, jwtPrivateKey, { expiresIn: '24h' }),
-//       },
-//     };
+// app.post('/portal/:presenter', asyncHandler(async ({ params: { presenter } }) => {
+//  const response = await presenterInfo({ pathParameters: { presenter }});
+//     return { status: response.statusCode, body: JSON.parse(response.body) };
 //   }),
 // );
 
 // app.post(
 //   '/begin',
 //   asyncHandler(async (req) => {
-//     const token = (req.headers['authorization'] || '').substring('Bearer '.length);
-//     let decodedToken;
-//     try {
-//       decodedToken = verify(token, jwtPrivateKey);
-//     } catch (err) {
-//       console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (!isDecodedBeginJWT(decodedToken)) {
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
-//       console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     const body = req.body;
-
-//     if (!isBeginBody(body, 'body') || body.presentationTitle.trim().length === 0 || body.fileName.trim().length === 0) {
-//       return { status: 400, body: 'Invalid request' };
-//     }
-
-//     const version = Date.now();
-//     const presenterName = sanitizeFileNames(decodedToken.name);
-//     const presentationTitle = sanitizeFileNames(body.presentationTitle);
-
-//     const objectName = `${presenterName}-${presentationTitle}-${version}${extname(body.fileName)}`;
-
-//     const { UploadId } = await client.createMultipartUpload({ Bucket: bucket, Key: objectName }).promise();
-
-//     return {
-//       body: {
-//         token: sign({ iss: jwtAudience, aud: jwtAudience, sub: UploadId, objectName: objectName }, jwtPrivateKey, {
-//           expiresIn: '24h',
-//         }),
-//       },
-//     };
+//      beginUpload({ headers: { Authorization: req.headers.authoriztion }, body: JSON.stringify(req.body) })
 //   }),
 // );
 
 // app.post(
 //   '/sign',
 //   asyncHandler(async (req) => {
-//     const token = (req.headers['authorization'] || '').substring('Bearer '.length);
-//     let decodedToken;
-//     try {
-//       decodedToken = verify(token, jwtPrivateKey);
-//     } catch (err) {
-//       console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (!isDecodedUploadJWT(decodedToken)) {
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
-//       console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     const body = req.body;
-
-//     if (!isSignBody(body, 'body') || body.parts === 0) {
-//       return { status: 400, body: 'Invalid request' };
-//     }
-
-//     const promises = [];
-
-//     for (let i = 0; i < body.parts; i++) {
-//       promises.push(
-//         client.getSignedUrlPromise('uploadPart', {
-//           Bucket: bucket,
-//           Key: decodedToken.objectName,
-//           Expires: 30 * 60, // 30 minutes
-//           UploadId: decodedToken.sub,
-//           PartNumber: i + 1,
-//         }),
-//       );
-//     }
-
-//     const signedURLs = await Promise.all(promises);
-
-//     console.log('Signed URLs:', signedURLs);
-
-//     return { body: { signedURLs } };
+//      signUploadURLs({ headers: { Authorization: req.headers.authoriztion }, body: JSON.stringify(req.body) })
 //   }),
 // );
 
 // app.post(
 //   '/finish',
 //   asyncHandler(async (req) => {
-//     const token = (req.headers['authorization'] || '').substring('Bearer '.length);
-//     let decodedToken;
-//     try {
-//       decodedToken = verify(token, jwtPrivateKey);
-//     } catch (err) {
-//       console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (!isDecodedUploadJWT(decodedToken)) {
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
-//       console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     const uploadId = decodedToken.sub;
-//     const objectName = decodedToken.objectName;
-
-//     const body = req.body;
-
-//     if (!isFinishBody(body, 'body') || body.parts.length === 0) {
-//       console.log('Body is not valid', body);
-//       return { status: 400, body: 'Invalid request' };
-//     }
-
-//     await client
-//       .completeMultipartUpload({
-//         Bucket: bucket,
-//         Key: objectName,
-//         UploadId: uploadId,
-//         MultipartUpload: { Parts: body.parts },
-//       })
-//       .promise();
-
-//     return { body: { ok: true } };
+//      finishUpload({ headers: { Authorization: req.headers.authoriztion }, body: JSON.stringify(req.body) })
 //   }),
 // );
 
 // app.post(
 //   '/abandon',
 //   asyncHandler(async (req) => {
-//     const token = (req.headers['authorization'] || '').substring('Bearer '.length);
-//     let decodedToken;
-//     try {
-//       decodedToken = verify(token, jwtPrivateKey);
-//     } catch (err) {
-//       console.log(`Error decoding JWT: ${(err as Error).message} for ${token}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (!isDecodedUploadJWT(decodedToken)) {
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     if (decodedToken.iss !== jwtAudience || decodedToken.aud !== jwtAudience) {
-//       console.log(`Unexpected iss ${decodedToken.iss} or aud ${decodedToken.aud}`);
-//       return { status: 403, body: 'Access Denied' };
-//     }
-
-//     const uploadId = decodedToken.sub;
-//     const objectName = decodedToken.objectName;
-
-//     await client
-//       .abortMultipartUpload({
-//         Bucket: bucket,
-//         Key: objectName,
-//         UploadId: uploadId,
-//       })
-//       .promise();
-
-//     return { body: { ok: true } };
 //   }),
 // );
 
