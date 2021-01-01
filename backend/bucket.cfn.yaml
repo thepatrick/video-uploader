@@ -31,7 +31,36 @@ Resources:
             AllowedOrigins: ["*"]
             ExposedHeaders:
             - "etag"
+  
+  FrontendWebsite:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccessControl: "PublicRead"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: "index.html"
+        ErrorDocument: "index.html"
+  
+  FrontendWebsiteBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref "FrontendWebsite"
+      PolicyDocument:
+        "Version": "2012-10-17"
+        "Statement":
+        - "Effect": "Allow"
+          "Principal": "*"
+          "Action":
+          - "s3:GetObject"
+          "Resource":
+          - !Sub "arn:aws:s3:::${FrontendWebsite}/*"
 
 Outputs:
   AcceleratedEndpoint:
     Value: !Sub "${VideoUploads}.s3-accelerate.amazonaws.com"
+  FrontendURL:
+    Value: !GetAtt "FrontendWebsite.WebsiteURL"
