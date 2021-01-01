@@ -1,4 +1,9 @@
-export type UploadIdResponse = { token: string };
+export type APIError = { ok: false; error: string };
+export type APIOK = { ok: true };
+
+export const isAPIError = (possible: APIError | APIOK): possible is APIError => possible.ok === false;
+
+export type UploadIdResponse = APIError | (APIOK & { token: string });
 
 export type GetPartSignedURLsResponse = { signedURLs: string[] };
 
@@ -34,11 +39,13 @@ export const abandonUpload = async (token: string): Promise<{ ok: boolean }> => 
 export const completeUpload = async (token: string, parts: Part[]): Promise<{ ok: boolean }> =>
   apiCall('/finish', { parts }, token);
 
-export interface PortalDetails {
-  ok: boolean;
-  name: string;
-  token: string;
-}
+export type PortalDetails =
+  | APIError
+  | (APIOK & {
+      ok: boolean;
+      name: string;
+      token: string;
+    });
 
 export const getPortalDetails = async (presenterId: string): Promise<PortalDetails> =>
-  apiCall(`/portal/${encodeURIComponent(presenterId)}`, {});
+  apiCall(`/presenter/${encodeURIComponent(presenterId)}`, {});

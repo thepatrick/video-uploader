@@ -2,3 +2,5 @@
 /node_modules
 /dist
 **/*.guard.ts
+build.key
+build.zip

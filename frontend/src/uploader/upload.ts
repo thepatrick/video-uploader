@@ -6,7 +6,7 @@ export interface PartProgress {
 }
 
 import pLimit from 'p-limit';
-import { abandonUpload, completeUpload, getPartSignedURLs, getUploadId } from './apiCalls';
+import { abandonUpload, completeUpload, getPartSignedURLs, getUploadId, isAPIError } from './apiCalls';
 
 const FILE_CHUNK_SIZE = 10_000_000;
 
@@ -21,7 +21,14 @@ export const upload = async (
 ): Promise<void> => {
   const partCounts = Math.ceil(file.size / FILE_CHUNK_SIZE);
 
-  const { token: uploadToken } = await getUploadId(token, file.name, presentationTitle);
+  const uploadIdResponse = await getUploadId(token, file.name, presentationTitle);
+
+  if (isAPIError(uploadIdResponse)) {
+    throw new Error(uploadIdResponse.error);
+  }
+
+  const uploadToken = uploadIdResponse.token;
+
   const { signedURLs } = await getPartSignedURLs(uploadToken, partCounts);
 
   const promises = [];

@@ -1,0 +1,16 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Creates a bucket to store the backend lambda"
+
+Resources:
+  BackendBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccelerateConfiguration:
+        AccelerationStatus: "Enabled"
+      AccessControl: "Private"
+
+Outputs:
+  BackendBucket:
+    Value: !Ref "BackendBucket"

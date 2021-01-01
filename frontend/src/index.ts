@@ -9,7 +9,7 @@ import { createShowAlert } from './createShowAlert';
 import { createProgressBar } from './ProgressBar';
 import { setHidden, SetHidden } from './setHidden';
 import { createUploadFile } from './createUploadFile';
-import { getPortalDetails } from './uploader/apiCalls';
+import { getPortalDetails, isAPIError } from './uploader/apiCalls';
 
 const setup = async () => {
   const presenterInput = <HTMLInputElement>document.getElementById('presenter-name');
@@ -40,6 +40,11 @@ const setup = async () => {
   try {
     const presenter = new URLSearchParams(window.location.search).get('presenter');
     const portalDetails = await getPortalDetails(presenter);
+
+    if (isAPIError(portalDetails)) {
+      throw new Error(`Could not obtain presenter details: ${portalDetails.error}`);
+    }
+
     presenterInput.value = portalDetails.name;
 
     const uploadFiles = createUploadFile(

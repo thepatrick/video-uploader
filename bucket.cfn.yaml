@@ -12,6 +12,17 @@ Parameters:
     Type: String
   FrontendWebsiteCertificate:
     Type: String
+  BackendLambdaS3Bucket:
+    Type: String
+  BackendLambdaS3Key:
+    Type: String
+  VeypearPresenterBase:
+    Type: String
+  BackendJWTPrivateKey:
+    Type: String
+    NoEcho: true
+  BackendJWTAudience:
+    Type: String
 
 Resources:
   VideoUploads:
@@ -42,6 +53,288 @@ Resources:
             ExposedHeaders:
             - "etag"
   
+  BackendLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      ManagedPolicyArns: 
+      - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+        - Principal:
+            Service: 
+            - "lambda.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+          Effect: "Allow"
+  
+  CanWriteToVideoUploads:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "CanWriteToVideoUploads"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Action:
+          - "s3:*"
+          Resource:
+          - !Sub "arn:aws:s3:::${VideoUploads}/*"
+      Roles:
+      - !Ref "BackendLambdaRole"
+
+  BackendPresenterInfoFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BackendLambdaS3Bucket
+        S3Key: !Ref BackendLambdaS3Key
+      Handler: src/index.presenterInfo
+      Role: !GetAtt "BackendLambdaRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 25
+      Environment:
+        Variables:
+          UPLOADER_BUCKET: !Ref "VideoUploads"
+          UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
+          UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
+          UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
+
+  BackendBeginUploadInfoFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BackendLambdaS3Bucket
+        S3Key: !Ref BackendLambdaS3Key
+      Handler: src/index.beginUpload
+      Role: !GetAtt "BackendLambdaRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 25
+      Environment:
+        Variables:
+          UPLOADER_BUCKET: !Ref "VideoUploads"
+          UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
+          UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
+          UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
+
+  BackendSignUploadURLsFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BackendLambdaS3Bucket
+        S3Key: !Ref BackendLambdaS3Key
+      Handler: src/index.signUploadURLs
+      Role: !GetAtt "BackendLambdaRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 25
+      Environment:
+        Variables:
+          UPLOADER_BUCKET: !Ref "VideoUploads"
+          UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
+          UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
+          UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
+
+  BackendFinishUploadFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BackendLambdaS3Bucket
+        S3Key: !Ref BackendLambdaS3Key
+      Handler: src/index.finishUpload
+      Role: !GetAtt "BackendLambdaRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 25
+      Environment:
+        Variables:
+          UPLOADER_BUCKET: !Ref "VideoUploads"
+          UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
+          UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
+          UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
+  
+  BackendAbandonUploadFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BackendLambdaS3Bucket
+        S3Key: !Ref BackendLambdaS3Key
+      Handler: src/index.abandonUpload
+      Role: !GetAtt "BackendLambdaRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 25
+      Environment:
+        Variables:
+          UPLOADER_BUCKET: !Ref "VideoUploads"
+          UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
+          UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
+          UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
+  
+  BackendAPIRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "apigateway.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+      - PolicyName: LambdaAccess
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action: "lambda:*"
+            Resource:
+            - !GetAtt BackendPresenterInfoFn.Arn
+            - !GetAtt BackendBeginUploadInfoFn.Arn
+            - !GetAtt BackendSignUploadURLsFn.Arn
+            - !GetAtt BackendFinishUploadFn.Arn
+            - !GetAtt BackendAbandonUploadFn.Arn
+
+  BackendAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      ProtocolType: HTTP
+      Description: !Sub "${AWS::StackName} API"
+      Name: !Sub "${AWS::StackName}-api"
+      CorsConfiguration:
+        AllowCredentials: true
+        AllowHeaders:
+        - "authorization"
+        - "content-type"
+        AllowMethods:
+        - "POST"
+        AllowOrigins:
+        - "http://localhost:1234"
+        - !Sub "https://${FrontendDomain}"
+
+  BackendAPIDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+    - BackendPresenterInfoIntegration
+    - BackendPresenterInfoRoute
+    Properties:
+      Description: !Sub "${AWS::StackName} API Deployment"
+      ApiId: !Ref BackendAPI
+
+  BackendAPIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      DeploymentId: !Ref BackendAPIDeployment
+      Description: !Sub "${AWS::StackName} API v0"
+      ApiId: !Ref BackendAPI
+      StageName: "api"
+      AutoDeploy: true
+
+  BackendPresenterInfoIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BackendAPI
+      Description: "Presenter Info"
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt "BackendAPIRole.Arn"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      IntegrationMethod: "POST"
+      IntegrationType: "AWS_PROXY"
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendPresenterInfoFn.Arn}/invocations"
+
+  BackendPresenterInfoRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BackendAPI
+      RouteKey: POST /presenter/{presenter}
+      Target: !Sub "integrations/${BackendPresenterInfoIntegration}"
+
+  BackendBeginUploadInfoFnIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BackendAPI
+      Description: "Obtain token to upload a single file"
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt "BackendAPIRole.Arn"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      IntegrationMethod: "POST"
+      IntegrationType: "AWS_PROXY"
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendBeginUploadInfoFn.Arn}/invocations"
+
+  BackendBeginUploadInfoFnIntegrationRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BackendAPI
+      RouteKey: POST /begin
+      Target: !Sub "integrations/${BackendBeginUploadInfoFnIntegration}"
+
+  BackendSignUploadURLsFnIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BackendAPI
+      Description: "Obtain signed urls to upload individual pieces of the file"
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt "BackendAPIRole.Arn"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      IntegrationMethod: "POST"
+      IntegrationType: "AWS_PROXY"
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendSignUploadURLsFn.Arn}/invocations"
+
+  BackendSignUploadURLsFnIntegrationRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BackendAPI
+      RouteKey: POST /sign
+      Target: !Sub "integrations/${BackendSignUploadURLsFnIntegration}"
+
+  BackendFinishUploadFnIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BackendAPI
+      Description: "Mark uploaded file as complete"
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt "BackendAPIRole.Arn"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      IntegrationMethod: "POST"
+      IntegrationType: "AWS_PROXY"
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendFinishUploadFn.Arn}/invocations"
+
+  BackendFinishUploadFnIntegrationRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BackendAPI
+      RouteKey: POST /finish
+      Target: !Sub "integrations/${BackendFinishUploadFnIntegration}"
+
+  BackendAbandonUploadFnIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BackendAPI
+      Description: "Mark uploaded file as abandoned (reclaims S3 storage)"
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt "BackendAPIRole.Arn"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      IntegrationMethod: "POST"
+      IntegrationType: "AWS_PROXY"
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendAbandonUploadFn.Arn}/invocations"
+
+  BackendAbandonUploadFnIntegrationRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BackendAPI
+      RouteKey: POST /abandon
+      Target: !Sub "integrations/${BackendAbandonUploadFnIntegration}"
+
   FrontendWebsite:
     Type: "AWS::S3::Bucket"
     Properties:
@@ -138,4 +431,7 @@ Outputs:
     Value: !Sub "${VideoUploads}.s3-accelerate.amazonaws.com"
   FrontendURL:
     Value: !GetAtt "FrontendDistribution.DomainName"
-    
+  BackendPresenterInfoFn:
+    Value: !GetAtt "BackendPresenterInfoFn.Arn"
+  FrontendWebsiteBucket:
+    Value: !Ref "FrontendWebsite"
