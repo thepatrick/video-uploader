@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Video Uploader</title>
+  </head>
+
+  <body>
+    <form id="upload-form" class="form-signin bg-light border rounded shadow-sm" novalidate>
+      <div class="text-center mb-4">
+        <h1 class="display-4 mb-3 font-weight-normal">Upload Video</h1>
+        <!-- <h4 class="display-8 mb-3 font-weight-normal">Submissions have closed.  If you have not uploaded a video, you will be Live Streaming on the day.</h1> -->
+      </div>
+
+      <div class="form-label-group">
+        <input type="text" id="presenter-name" class="form-control" placeholder="Presenter name" required readonly>
+        <label for="speaker-name">Presenter name</label>
+        <div class="invalid-feedback">
+          Please provide the name of at least one presenter.
+        </div>
+      </div>
+
+      <div class="form-label-group">
+        <input type="text" id="presentation-title" class="form-control" placeholder="Presentation title" required autofocus>
+        <label for="talk-title">Presentation title</label>
+        <div class="invalid-feedback">
+          Please provide the name of the presentation.
+        </div>
+      </div>
+
+      <div class="custom-file mb-4">
+        <input type="file" class="custom-file-input" id="file-input" required>
+        <label class="custom-file-label" for="customFile">Choose file</label>
+      </div>
+
+      <button class="btn btn-lg btn-primary btn-block" id="submit-button">Upload</button>
+
+      <div class="text-center mt-5 d-none" id="upload-spinner">
+        <div class="spinner-border text-primary" style="width: 6rem; height: 6rem;" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+      </div>
+
+      <div class="progress mt-5 d-none">
+        <div id="upload-progress" class="progress-bar" role="progressbar" style="width: 1%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+    </form>
+
+    <script src="src/index.ts"></script>
+  </body>
+</html>
