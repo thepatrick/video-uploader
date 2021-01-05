@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Upload to Amazon S3
+    name: Deploy backend-bucket.cfn.yaml
     runs-on: ubuntu-latest
 
     steps:
