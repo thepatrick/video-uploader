@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+env:
+  HOSTED_ZONE_ID: Z09102521YXWQT2ZKMPP7
+  FRONTEND_DOMAIN: lca2021-presenter.aws.nextdayvideo.com.au
+  BACKEND_DOMAIN: lca2021-presenter-api.aws.nextdayvideo.com.au
+
 jobs:
   deploy-backend-bucket:
     name: Deploy backend-bucket.cfn.yaml
@@ -136,7 +141,7 @@ jobs:
       env:
         BackendLambdaS3Bucket: ${{needs.build-backend-lambda.outputs.bucket}}
         BackendLambdaS3Key: ${{needs.build-backend-lambda.outputs.object}}
-        FrontendWebsiteCertificate: ${{needs.deploy-certificate.outputs.certificate}}
+        FRONTEND_WEBSITE_CERTIFICATE: ${{needs.deploy-certificate.outputs.certificate}}
         BackendJWTPrivateKey: ${{secrets.UPLOADER_JWT_PRIVATE_KEY}}
       run: |
         ./deploy-deployment.cfn.yaml.sh
