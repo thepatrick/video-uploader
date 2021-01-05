@@ -10,6 +10,9 @@ jobs:
     name: Deploy backend-bucket.cfn.yaml
     runs-on: ubuntu-latest
 
+    outputs:
+      backendBucket: ${{ steps.step1.deploy-bucket.outputs.backendBucket }}
+
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -28,6 +31,7 @@ jobs:
         verbose: false # default
         
     - name: Deploy backend-bucket.cfn.yaml
+      id: deploy-bucket
       run: |
         ./deploy-bucket.cfn.yaml.sh
 
@@ -59,5 +63,7 @@ jobs:
         verbose: false # default
 
     - name: Build and push to S3
+      env:
+        LAMBDA_BUCKET: ${{needs.deploy-backend-bucket.outputs.backendBucket}}
       run: |
-        ./backend-lambda/push.sh
+        ./backend-lambda/ci/pr.sh
