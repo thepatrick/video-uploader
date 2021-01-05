@@ -38,7 +38,9 @@ const setup = async () => {
   setSpinnerHidden(false);
 
   try {
-    const presenter = new URLSearchParams(window.location.search).get('presenter');
+    const params = new URLSearchParams(window.location.search);
+    const debug = params.has('debug');
+    const presenter = params.get('presenter');
     const portalDetails = await getPortalDetails(presenter);
 
     if (isAPIError(portalDetails)) {
@@ -52,6 +54,7 @@ const setup = async () => {
       setFormBeingProcessed,
       showAlert,
       setSpinnerHidden,
+      debug,
       portalDetails.token,
     );
 

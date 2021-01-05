@@ -1,19 +1,43 @@
 import { uploadPart } from './uploadPart';
-import { getSlice } from './getSlice';
 
 export interface PartProgress {
   uploadedBytes: number;
 }
 
 import pLimit from 'p-limit';
-import { abandonUpload, completeUpload, getPartSignedURLs, getUploadId, isAPIError } from './apiCalls';
+import { abandonUpload, completeUpload, getPartURL, getUploadId, isAPIError } from './apiCalls';
 
 const FILE_CHUNK_SIZE = 10_000_000;
 
 const calculateProgress = (allParts: { uploadedBytes: number }[]): number =>
   allParts.reduce((prev, curr) => prev + curr.uploadedBytes, 0);
 
+const createUploadSliceTask = (
+  debug: boolean,
+  uploadToken: string,
+  partNumber: number,
+  file: File,
+  onProgress: (loadedBytes: number) => void,
+) => async () => {
+  if (debug) {
+    console.log(`Requesting URL for ${partNumber}`);
+  }
+
+  const partURLResponse = await getPartURL(uploadToken, partNumber);
+
+  if (isAPIError(partURLResponse)) {
+    throw new Error(partURLResponse.error);
+  }
+
+  const partURL = partURLResponse.signedURLs[0];
+
+  const slice = file.slice(partNumber * FILE_CHUNK_SIZE, Math.min((partNumber + 1) * FILE_CHUNK_SIZE, file.size));
+
+  return uploadPart(debug, slice, partNumber, partURL, onProgress);
+};
+
 export const upload = async (
+  debug: boolean,
   token: string,
   file: File,
   presentationTitle: string,
@@ -29,41 +53,42 @@ export const upload = async (
 
   const uploadToken = uploadIdResponse.token;
 
-  const { signedURLs } = await getPartSignedURLs(uploadToken, partCounts);
-
   const promises = [];
   const partProgress: PartProgress[] = [];
+  const updateTotalProgress = () => {
+    const totalProgress = calculateProgress(partProgress);
+
+    onProgress(totalProgress);
+  };
 
   const limit = pLimit(4);
 
-  for (let i = 0; i < partCounts; i++) {
-    const part = i;
-
+  for (let part = 0; part < partCounts; part++) {
     partProgress[part] = { uploadedBytes: 0 };
 
     promises.push(
-      limit(() => {
-        const slice = getSlice(file, i * FILE_CHUNK_SIZE, (part + 1) * FILE_CHUNK_SIZE);
-
-        console.log('Starting slice', part, slice.size, slice);
-
-        return uploadPart(slice, part, signedURLs[i], (loadedBytes) => {
+      limit(
+        createUploadSliceTask(debug, uploadToken, part, file, (loadedBytes) => {
           partProgress[part].uploadedBytes = loadedBytes;
-
-          const totalProgress = calculateProgress(partProgress);
-
-          onProgress(totalProgress);
-        });
-      }),
+          updateTotalProgress();
+        }),
+      ),
     );
   }
 
   try {
     const completedParts = await Promise.all(promises);
-    console.log('completedParts', completedParts);
-    await completeUpload(uploadToken, completedParts);
+    if (debug) {
+      console.log('completedParts', completedParts);
+    }
+    const completeUploadResponse = await completeUpload(uploadToken, completedParts);
+    if (isAPIError(completeUploadResponse)) {
+      throw new Error(completeUploadResponse.error);
+    }
   } catch (err) {
-    console.log('Abandoning because', err);
+    if (debug) {
+      console.log('Abandoning because', err);
+    }
     await abandonUpload(uploadToken);
   }
 };

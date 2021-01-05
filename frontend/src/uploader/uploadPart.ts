@@ -2,20 +2,25 @@ import axios from 'axios';
 import { Part } from './apiCalls';
 
 export const uploadPart = async (
+  debug: boolean,
   blob: Blob,
   partNumber: number,
   uploadUrl: string,
-  onProgress: (loadedBytes: number, ofBytes: number) => void,
+  onProgress: (loadedBytes: number) => void,
 ): Promise<Part> => {
-  console.log('Part', partNumber, 'Starting....');
+  if (debug) {
+    console.log(`Part #${partNumber} starting, ${blob.size} bytes.`);
+  }
 
   const output = await axios.put(uploadUrl, blob, {
-    onUploadProgress: (loadedBytes: ProgressEvent) => onProgress(loadedBytes.loaded, loadedBytes.total),
+    onUploadProgress: (loadedBytes: ProgressEvent) => onProgress(loadedBytes.loaded),
   });
 
   const etag = (output.headers as { etag: string }).etag;
 
-  console.log('Part', partNumber, 'Done.');
+  if (debug) {
+    console.log(`Part #${partNumber} done.`);
+  }
 
   return { ETag: etag, PartNumber: partNumber + 1 };
 };

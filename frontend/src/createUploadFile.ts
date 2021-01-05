@@ -8,14 +8,17 @@ export const createUploadFile = (
   setFormBeingProcessed: SetHidden,
   showAlert: ShowAlert,
   setSpinnerHidden: SetHidden,
+  debug: boolean,
   token: string,
 ) => async (file: File, presentationTitle: string): Promise<void> => {
   try {
     setSpinnerHidden(false);
     progressBar.setHidden(false);
 
-    await upload(token, file, presentationTitle, (loadedBytes) => {
-      console.log('Updating progress...', loadedBytes, file.size, (loadedBytes / file.size) * 100);
+    await upload(debug, token, file, presentationTitle, (loadedBytes) => {
+      if (debug) {
+        console.log('Updating progress...', loadedBytes, file.size, (loadedBytes / file.size) * 100);
+      }
       progressBar.setProgress((loadedBytes / file.size) * 100);
     });
     setSpinnerHidden(true);
@@ -23,7 +26,9 @@ export const createUploadFile = (
 
     showAlert('Upload finished succesfully', 'success');
   } catch (error) {
-    console.error('Error', error);
+    if (debug) {
+      console.error('Error', error);
+    }
     showAlert((error as Error).message, 'danger');
     setFormBeingProcessed(false);
     setSpinnerHidden(true);

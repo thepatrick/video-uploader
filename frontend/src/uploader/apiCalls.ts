@@ -3,10 +3,6 @@ export type APIOK = { ok: true };
 
 export const isAPIError = (possible: APIError | APIOK): possible is APIError => possible.ok === false;
 
-export type UploadIdResponse = APIError | (APIOK & { token: string });
-
-export type GetPartSignedURLsResponse = { signedURLs: string[] };
-
 export interface Part {
   ETag: string;
   PartNumber: number;
@@ -18,25 +14,29 @@ export const apiCall = async <T>(remoteURL: string, body: unknown, token?: strin
     body: JSON.stringify(body),
     headers: {
       'content-type': 'application/json',
-      authorization: 'Bearer ' + token,
+      ...(token !== undefined && { authorization: 'Bearer ' + token }),
     },
   });
 
   return response.json() as Promise<T>;
 };
 
+export type UploadIdResponse = APIError | (APIOK & { token: string });
 export const getUploadId = async (
   token: string,
   fileName: string,
   presentationTitle: string,
 ): Promise<UploadIdResponse> => apiCall('/begin', { fileName, presentationTitle }, token);
 
-export const getPartSignedURLs = (token: string, parts: number): Promise<GetPartSignedURLsResponse> =>
-  apiCall('/sign', { parts }, token);
+export type GetPartURLResponse = APIError | (APIOK & { signedURLs: string[] });
+export const getPartURL = (token: string, part: number): Promise<GetPartURLResponse> =>
+  apiCall('/sign', { parts: 1, start: part }, token);
 
-export const abandonUpload = async (token: string): Promise<{ ok: boolean }> => apiCall('/abandon', {}, token);
+export type AbandonUploadResponse = APIError | APIOK;
+export const abandonUpload = async (token: string): Promise<APIError | APIOK> => apiCall('/abandon', {}, token);
 
-export const completeUpload = async (token: string, parts: Part[]): Promise<{ ok: boolean }> =>
+export type CompleteUploadResponse = APIError | APIOK;
+export const completeUpload = async (token: string, parts: Part[]): Promise<CompleteUploadResponse> =>
   apiCall('/finish', { parts }, token);
 
 export type PortalDetails =
