@@ -4,10 +4,6 @@ set -o errexit -o nounset -o pipefail
 
 export AWS_DEFAULT_REGION=ap-southeast-2
 
-echo FRONTEND_WEBSITE_CERTIFICATE=$FRONTEND_WEBSITE_CERTIFICATE
-echo BACKEND_LAMBDA_S3_BUCKET=$BACKEND_LAMBDA_S3_BUCKET
-echo BACKEND_LAMBDA_S3_KEY=$BACKEND_LAMBDA_S3_KEY
-
 aws cloudformation deploy \
   --template-file deployment.cfn.yaml \
   --stack-name uploader \
@@ -22,3 +18,7 @@ aws cloudformation deploy \
     "BackendJWTPrivateKey=$BACKEND_JWT_PRIVATE_KEY" \
     "VeypearPresenterBase=$VEYPEAR_PRESENTER_BASE" \
   --capabilities CAPABILITY_IAM
+
+FRONTEND_BUCKET=$(aws cloudformation describe-stacks --stack-name uploader --query 'Stacks[0].Outputs[?OutputKey==`FrontendWebsiteBucket`].OutputValue' --output text)
+
+echo "::set-output name=frontendBucket::$FRONTEND_BUCKET"
