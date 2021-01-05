@@ -32,4 +32,5 @@ fi
 
 echo s3://$LAMBDA_BUCKET/$object
 
-echo $object > build.key
+echo "::set-output name=bucket::$LAMBDA_BUCKET"
+echo "::set-output name=object::$object"

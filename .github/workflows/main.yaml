@@ -35,11 +35,42 @@ jobs:
       run: |
         ./deploy-bucket.cfn.yaml.sh
 
+  deploy-certificate:
+    name: Deploy certificate.cfn.yaml
+    runs-on: ubuntu-latest
+
+    outputs:
+      certificate: ${{ steps.deploy.outputs.certificate }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-southeast-2
+
+    - id: install-aws-cli
+      uses: unfor19/install-aws-cli-action@v1
+      with:
+        version: 2 # default
+        verbose: false # default
+        
+    - name: Deploy backend-bucket.cfn.yaml
+      id: deploy
+      run: |
+        ./deploy-certificate.cfn.yaml.sh
+
   build-backend-lambda:
     name: Build backend-lambda and push to S3
     runs-on: ubuntu-latest
-
     needs: deploy-backend-bucket
+    outputs:
+      bucket: ${{ steps.build-and-push.outputs.bucket }}
+      object: ${{ steps.build-and-push.outputs.object }}
 
     steps:
     - name: Checkout
@@ -63,6 +94,7 @@ jobs:
         verbose: false # default
 
     - name: Build and push to S3
+      id: build-and-push
       env:
         LAMBDA_BUCKET: ${{needs.deploy-backend-bucket.outputs.backendBucket}}
       run: |
