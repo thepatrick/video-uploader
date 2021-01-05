@@ -4,3 +4,4 @@
 4. Update readme in frontend
 5. Create readme in backend-lambda
 6. Populate a good readme in the root of the repo
+7. Move the cloudformtion templates + shell scripts out of the root folder.
