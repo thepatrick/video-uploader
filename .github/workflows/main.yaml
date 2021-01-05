@@ -178,7 +178,7 @@ jobs:
     - name: Make envfile
       uses: SpicyPizza/create-envfile@v1
       with:
-        envkey_AWS_UPLOAD_API_SERVER: ${{ secrets.AWS_UPLOAD_API_SERVER }}
+        envkey_AWS_UPLOAD_API_SERVER: /api
         file_name: frontend/.env
 
     - name: Build and push to S3
