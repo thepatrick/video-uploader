@@ -13,6 +13,9 @@ cd $(dirname "$0")/..
 
 object=$(ci/current-object.sh)
 
+echo LAMBDA_BUCKET=$LAMBDA_BUCKET
+echo object=$object
+
 if ! s3_object_exists $LAMBDA_BUCKET $object; then
   start_group "Installing dependencies"
   npm ci
