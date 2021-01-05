@@ -139,9 +139,11 @@ jobs:
     - name: Deploy deployment.cfn.yaml
       id: deploy
       env:
-        BackendLambdaS3Bucket: ${{needs.build-backend-lambda.outputs.bucket}}
-        BackendLambdaS3Key: ${{needs.build-backend-lambda.outputs.object}}
+        BACKEND_JWT_AUDIENCE: lca2021-video-uploader 
+        BACKEND_JWT_PRIVATE_KEY: ${{secrets.UPLOADER_JWT_PRIVATE_KEY}}
+        BACKEND_LAMBDA_S3_BUCKET: ${{needs.build-backend-lambda.outputs.bucket}}
+        BACKEND_LAMBDA_S3_KEY: ${{needs.build-backend-lambda.outputs.object}}
         FRONTEND_WEBSITE_CERTIFICATE: ${{needs.deploy-certificate.outputs.certificate}}
-        BackendJWTPrivateKey: ${{secrets.UPLOADER_JWT_PRIVATE_KEY}}
+        VEYPEAR_PRESENTER_BASE: https://portal2.nextdayvideo.com.au/virtual/presenter
       run: |
         ./deploy-deployment.cfn.yaml.sh
