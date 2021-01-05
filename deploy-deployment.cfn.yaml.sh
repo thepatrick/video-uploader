@@ -11,7 +11,6 @@ echo BACKEND_LAMBDA_S3_KEY=$BACKEND_LAMBDA_S3_KEY
 aws cloudformation deploy \
   --template-file deployment.cfn.yaml \
   --stack-name uploader \
-  --no-execute-changeset \
   --parameter-override \
     "HostedZoneId=$HOSTED_ZONE_ID" \
     "FrontendDomain=$FRONTEND_DOMAIN" \
