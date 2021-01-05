@@ -165,7 +165,10 @@ export const signUploadURLs: APIGatewayProxyHandlerV2 = async (event, context) =
 
   const promises = [];
 
-  for (let i = body.start || 0; i < body.parts; i++) {
+  const start = body.start || 0;
+  const parts = start + body.parts;
+
+  for (let i = start || 0; i < parts; i++) {
     promises.push(
       client.getSignedUrlPromise('uploadPart', {
         Bucket: bucket,
@@ -213,16 +216,20 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
     return invalidRequest();
   }
 
-  await client
-    .completeMultipartUpload({
-      Bucket: bucket,
-      Key: objectName,
-      UploadId: uploadId,
-      MultipartUpload: { Parts: body.parts },
-    })
-    .promise();
-
-  return response({ ok: true });
+  try {
+    await client
+      .completeMultipartUpload({
+        Bucket: bucket,
+        Key: objectName,
+        UploadId: uploadId,
+        MultipartUpload: { Parts: body.parts },
+      })
+      .promise();
+    return response({ ok: true });
+  } catch (err) {
+    console.log('Unable to complete upload:', err);
+    return response({ ok: false, error: 'Unable to complete upload.' }, 500);
+  }
 };
 
 export const abandonUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
@@ -247,13 +254,17 @@ export const abandonUpload: APIGatewayProxyHandlerV2 = async (event, context) =>
   const uploadId = decodedToken.sub;
   const objectName = decodedToken.objectName;
 
-  await client
-    .abortMultipartUpload({
-      Bucket: bucket,
-      Key: objectName,
-      UploadId: uploadId,
-    })
-    .promise();
+  try {
+    await client
+      .abortMultipartUpload({
+        Bucket: bucket,
+        Key: objectName,
+        UploadId: uploadId,
+      })
+      .promise();
+  } catch (err) {
+    console.log('Unable to abandon upload:', err);
+  }
 
   return response({ ok: true });
 };
