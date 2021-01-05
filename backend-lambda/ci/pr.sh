@@ -11,8 +11,7 @@ cd $(dirname "$0")/..
 
 . ../ci/functions.sh
 
-hash=$(calculate_hash $PWD "$PWD/../ci/")
-object=backend-lambda/${hash}/build.zip
+object=$(ci/current-object.sh)
 
 if ! s3_object_exists $LAMBDA_BUCKET $object; then
   start_group "Installing dependencies"
