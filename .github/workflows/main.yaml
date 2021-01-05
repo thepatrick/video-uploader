@@ -21,10 +21,12 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-southeast-2
 
-    - name: Deploy backend-bucket.cfn.yaml
-      id: eks-cluster
-      uses: aws-actions/aws-cloudformation-github-deploy@master
+    - id: install-aws-cli
+      uses: unfor19/install-aws-cli-action@v1
       with:
-        name: uploader-backend
-        template: backend-bucket.cfn.yaml
-        no-fail-on-empty-changeset: "1"
+        version: 2 # default
+        verbose: false # default
+        
+    - name: Deploy backend-bucket.cfn.yaml
+      run: |
+        ./deploy-bucket.cfn.yaml.sh
