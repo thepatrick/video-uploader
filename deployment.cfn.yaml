@@ -385,6 +385,9 @@ Resources:
           - "HEAD"
           - "POST"
           - "OPTIONS"
+          - "DELETE"
+          - "PUT"
+          - "PATCH"
           CachedMethods:
           - "GET"
           - "HEAD"
