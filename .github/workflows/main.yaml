@@ -59,7 +59,7 @@ jobs:
         version: 2 # default
         verbose: false # default
         
-    - name: Deploy backend-bucket.cfn.yaml
+    - name: Deploy certificate.cfn.yaml
       id: deploy
       run: |
         ./deploy-certificate.cfn.yaml.sh
