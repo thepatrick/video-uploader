@@ -2,7 +2,6 @@
 
 set -o errexit -o nounset -o pipefail
 
-export AWS_PROFILE=lca2021
 export AWS_DEFAULT_REGION=ap-southeast-2
 
 aws cloudformation deploy \
