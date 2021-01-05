@@ -165,7 +165,7 @@ export const signUploadURLs: APIGatewayProxyHandlerV2 = async (event, context) =
 
   const promises = [];
 
-  for (let i = 0; i < body.parts; i++) {
+  for (let i = body.start || 0; i < body.parts; i++) {
     promises.push(
       client.getSignedUrlPromise('uploadPart', {
         Bucket: bucket,

@@ -12,6 +12,7 @@ export interface BeginBody {
 /** @see {isSignBody} ts-auto-guard:type-guard */
 export interface SignBody {
   parts: number;
+  start?: number;
 }
 
 /** @see {isFinishBody} ts-auto-guard:type-guard */
