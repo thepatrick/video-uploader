@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      backendBucket: ${{ steps.step1.deploy-bucket.outputs.backendBucket }}
+      backendBucket: ${{ steps.deploy-bucket.outputs.backendBucket }}
 
     steps:
     - name: Checkout
