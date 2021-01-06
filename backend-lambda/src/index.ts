@@ -286,27 +286,29 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
       })
       .promise();
 
-    const { ContentLength, Metadata } = await client
+    const { ContentLength, Metadata, ETag, PartsCount } = await client
       .headObject({
         Bucket: bucket,
         Key: objectName,
       })
       .promise();
 
-    const uploadFinished = await notifyPortalUploadFinished(
+    await notifyPortalUploadFinished(
       decodedToken.uuid,
       decodedToken.ep,
       `https://s3.amazonaws.com/${encodeURIComponent(bucket)}/${objectName}`,
       {
         uploadId: uploadId,
         parts: body.parts.length,
-        contentLength: ContentLength,
-        metadata: Metadata,
+        ContentLength,
+        Metadata,
         s3: `s3://${encodeURIComponent(bucket)}/${objectName}`,
+        ETag,
+        PartsCount,
       },
     );
 
-    return response({ ok: true, uploadFinished });
+    return response({ ok: true });
   } catch (err) {
     console.log('Unable to complete upload:', err);
     return response({ ok: false, error: 'Unable to complete upload.' }, 500);
