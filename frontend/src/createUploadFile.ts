@@ -10,12 +10,12 @@ export const createUploadFile = (
   setSpinnerHidden: SetHidden,
   debug: boolean,
   token: string,
-) => async (file: File, presentationTitle: string): Promise<void> => {
+) => async (file: File, episode: number): Promise<void> => {
   try {
     setSpinnerHidden(false);
     progressBar.setHidden(false);
 
-    await upload(debug, token, file, presentationTitle, (loadedBytes) => {
+    await upload(debug, token, file, episode, (loadedBytes) => {
       if (debug) {
         console.log('Updating progress...', loadedBytes, file.size, (loadedBytes / file.size) * 100);
       }

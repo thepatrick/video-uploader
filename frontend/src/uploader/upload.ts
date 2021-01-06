@@ -29,23 +29,21 @@ const createUploadSliceTask = (
     throw new Error(partURLResponse.error);
   }
 
-  const partURL = partURLResponse.signedURLs[0];
-
   const slice = file.slice(partNumber * FILE_CHUNK_SIZE, Math.min((partNumber + 1) * FILE_CHUNK_SIZE, file.size));
 
-  return uploadPart(debug, slice, partNumber, partURL, onProgress);
+  return uploadPart(debug, slice, partNumber, partURLResponse.partURL, onProgress);
 };
 
 export const upload = async (
   debug: boolean,
   token: string,
   file: File,
-  presentationTitle: string,
+  episode: number,
   onProgress: (loadedBytes: number) => void,
 ): Promise<void> => {
   const partCounts = Math.ceil(file.size / FILE_CHUNK_SIZE);
 
-  const uploadIdResponse = await getUploadId(token, file.name, presentationTitle);
+  const uploadIdResponse = await getUploadId(token, file.name, episode);
 
   if (isAPIError(uploadIdResponse)) {
     throw new Error(uploadIdResponse.error);

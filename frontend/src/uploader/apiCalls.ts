@@ -22,15 +22,12 @@ export const apiCall = async <T>(remoteURL: string, body: unknown, token?: strin
 };
 
 export type UploadIdResponse = APIError | (APIOK & { token: string });
-export const getUploadId = async (
-  token: string,
-  fileName: string,
-  presentationTitle: string,
-): Promise<UploadIdResponse> => apiCall('/begin', { fileName, presentationTitle }, token);
+export const getUploadId = async (token: string, fileName: string, episode: number): Promise<UploadIdResponse> =>
+  apiCall('/begin', { fileName, episode }, token);
 
-export type GetPartURLResponse = APIError | (APIOK & { signedURLs: string[] });
-export const getPartURL = (token: string, part: number): Promise<GetPartURLResponse> =>
-  apiCall('/sign', { parts: 1, start: part }, token);
+export type GetPartURLResponse = APIError | (APIOK & { partURL: string });
+export const getPartURL = (token: string, partNumber: number): Promise<GetPartURLResponse> =>
+  apiCall('/part', { partNumber }, token);
 
 export type AbandonUploadResponse = APIError | APIOK;
 export const abandonUpload = async (token: string): Promise<APIError | APIOK> => apiCall('/abandon', {}, token);
@@ -45,6 +42,10 @@ export type PortalDetails =
       ok: boolean;
       name: string;
       token: string;
+      presentations: {
+        pk: number;
+        name: string;
+      }[];
     });
 
 export const getPortalDetails = async (presenterId: string): Promise<PortalDetails> =>

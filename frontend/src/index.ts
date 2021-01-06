@@ -41,15 +41,23 @@ const setup = async () => {
     const params = new URLSearchParams(window.location.search);
     const debug = params.has('debug');
     const presenter = params.get('presenter');
+    const episode = parseInt(params.get('episode'), 10);
     const portalDetails = await getPortalDetails(presenter);
 
     if (isAPIError(portalDetails)) {
       throw new Error(`Could not obtain presenter details: ${portalDetails.error}`);
     }
 
-    presenterInput.value = portalDetails.name;
+    const presentation = portalDetails.presentations.find(({ pk }) => pk === episode);
 
-    const uploadFiles = createUploadFile(
+    if (!presentation) {
+      throw new Error(`Could not find episode: ${episode}`);
+    }
+
+    presenterInput.value = portalDetails.name;
+    presentationTitle.value = presentation.name;
+
+    const uploadFile = createUploadFile(
       progressBar,
       setFormBeingProcessed,
       showAlert,
@@ -74,7 +82,7 @@ const setup = async () => {
 
       const file = fileInput.files[0];
 
-      await uploadFiles(file, presentationTitle.value);
+      await uploadFile(file, episode);
     };
 
     formEl.addEventListener(
