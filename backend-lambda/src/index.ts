@@ -236,6 +236,9 @@ const notifyPortalUploadFinished = async (
 
   if (!(portalRequest.status >= 200 && portalRequest.status < 300)) {
     const body = await portalRequest.text();
+
+    console.log('Unexpected response from veyepar: ' + body);
+
     return failure({ statusCode: portalRequest.status, message: 'Invalid response from veyepar portal', body });
   }
 
@@ -293,12 +296,13 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
     const uploadFinished = await notifyPortalUploadFinished(
       decodedToken.uuid,
       decodedToken.ep,
-      `s3://${encodeURIComponent(bucket)}/${objectName}`,
+      `https://s3.amazonaws.com/${encodeURIComponent(bucket)}/${objectName}`,
       {
         uploadId: uploadId,
         parts: body.parts.length,
         contentLength: ContentLength,
         metadata: Metadata,
+        s3: `s3://${encodeURIComponent(bucket)}/${objectName}`,
       },
     );
 
