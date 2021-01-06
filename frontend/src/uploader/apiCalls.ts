@@ -1,7 +1,7 @@
 export type APIError = { ok: false; error: string };
 export type APIOK = { ok: true };
 
-export const isAPIError = (possible: APIError | APIOK): possible is APIError => possible.ok === false;
+export const isAPIError = (possible: APIError | APIOK): possible is APIError => possible.ok !== true;
 
 export interface Part {
   ETag: string;
