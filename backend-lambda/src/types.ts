@@ -1,8 +1,3 @@
-interface Part {
-  ETag: string;
-  PartNumber: number;
-}
-
 /** @see {isBeginBody} ts-auto-guard:type-guard */
 export interface BeginBody {
   episode: number;
@@ -16,7 +11,10 @@ export interface UploadURLBody {
 
 /** @see {isFinishBody} ts-auto-guard:type-guard */
 export interface FinishBody {
-  parts: Part[];
+  parts: {
+    ETag: string;
+    PartNumber: number;
+  }[];
 }
 
 /** @see {isVeypearPresentation} ts-auto-guard:type-guard */
@@ -50,15 +48,4 @@ export interface DecodedUploadJWT {
   objectName: string;
   uuid: string;
   ep: number;
-}
-
-export type Result<L, R> = { ok: false; value: L } | { ok: true; value: R };
-
-export const failure = <L, R>(value: L): Result<L, R> => ({ ok: false, value });
-
-export const success = <L, R>(value: R): Result<L, R> => ({ ok: true, value });
-
-export interface HTTPFailure {
-  statusCode: number;
-  message: string;
 }
