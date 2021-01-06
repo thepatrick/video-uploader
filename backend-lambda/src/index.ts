@@ -158,7 +158,6 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
         presenterUuid: presenterInfo.value.uuid,
         presenterName: presenterInfo.value.name,
         episode: `${presentation.pk}`,
-        title: presentation.name,
       },
     })
     .promise();
