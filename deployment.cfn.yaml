@@ -117,13 +117,13 @@ Resources:
           UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
           UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
 
-  BackendSignUploadURLsFn:
+  BackendGetUploadURLFn:
     Type: AWS::Lambda::Function
     Properties:
       Code:
         S3Bucket: !Ref BackendLambdaS3Bucket
         S3Key: !Ref BackendLambdaS3Key
-      Handler: src/index.signUploadURLs
+      Handler: src/index.getUploadURL
       Role: !GetAtt "BackendLambdaRole.Arn"
       Runtime: "nodejs12.x"
       Timeout: 25
@@ -191,7 +191,7 @@ Resources:
             Resource:
             - !GetAtt BackendPresenterInfoFn.Arn
             - !GetAtt BackendBeginUploadInfoFn.Arn
-            - !GetAtt BackendSignUploadURLsFn.Arn
+            - !GetAtt BackendGetUploadURLFn.Arn
             - !GetAtt BackendFinishUploadFn.Arn
             - !GetAtt BackendAbandonUploadFn.Arn
 
@@ -272,7 +272,7 @@ Resources:
       RouteKey: POST /begin
       Target: !Sub "integrations/${BackendBeginUploadInfoFnIntegration}"
 
-  BackendSignUploadURLsFnIntegration:
+  BackendGetUploadURLFnIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref BackendAPI
@@ -284,14 +284,14 @@ Resources:
       IntegrationMethod: "POST"
       IntegrationType: "AWS_PROXY"
       PayloadFormatVersion: "2.0"
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendSignUploadURLsFn.Arn}/invocations"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendGetUploadURLFn.Arn}/invocations"
 
-  BackendSignUploadURLsFnIntegrationRoute:
+  BackendGetUploadURLFnIntegrationRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref BackendAPI
-      RouteKey: POST /sign
-      Target: !Sub "integrations/${BackendSignUploadURLsFnIntegration}"
+      RouteKey: POST /part
+      Target: !Sub "integrations/${BackendGetUploadURLFnIntegration}"
 
   BackendFinishUploadFnIntegration:
     Type: AWS::ApiGatewayV2::Integration

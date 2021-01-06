@@ -1,4 +1,4 @@
-import { APIGatewayProxyHandlerV2 } from 'aws-lambda';
+import { APIGatewayProxyHandlerV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { S3, Endpoint } from 'aws-sdk';
 import {
   isBeginBody,
@@ -11,6 +11,8 @@ import {
 import fetch from 'node-fetch';
 import { sign, verify } from 'jsonwebtoken';
 import { extname } from 'path';
+import { failure, HTTPFailure, Result, success, VeypearResponse } from './FinishBody';
+import { parseBody } from './helpers/parseBody';
 
 const bucket = process.env.UPLOADER_BUCKET;
 const jwtPrivateKey = process.env.UPLOADER_JWT_PRIVATE_KEY;
@@ -43,7 +45,7 @@ const sanitizeFileNames = (input: string) =>
     .toLocaleLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
 
-const response = (body: unknown, statusCode = 200) => ({
+const response = (body: unknown, statusCode = 200): APIGatewayProxyStructuredResultV2 => ({
   body: JSON.stringify(body),
   statusCode,
   isBase64Encoded: false,
@@ -55,6 +57,22 @@ const notFound = () => response({ ok: false, error: 'Not found' }, 404);
 const invalidRequest = (error = 'Invalid request') => response({ ok: false, error }, 400);
 const accessDenied = () => response({ ok: false, error: 'Access Denied' }, 403);
 
+const getPresenterInfo = async (presenter: string): Promise<Result<HTTPFailure, VeypearResponse>> => {
+  const portalRequest = await fetch(`${portal}/portal/${presenter}/`);
+
+  if (portalRequest.status !== 200) {
+    return failure({ statusCode: 404, message: 'Not Found' }); // invalidRequest('Invalid response from portal');
+  }
+
+  const data = (await portalRequest.json()) as unknown;
+
+  if (!isVeypearResponse(data)) {
+    return failure({ statusCode: 400, message: 'Invalid response from veyepar portal' });
+  }
+
+  return success(data);
+};
+
 export const presenterInfo: APIGatewayProxyHandlerV2 = async (event, context) => {
   const presenter = event.pathParameters?.presenter;
 
@@ -62,39 +80,33 @@ export const presenterInfo: APIGatewayProxyHandlerV2 = async (event, context) =>
     return notFound();
   }
 
-  const portalRequest = await fetch(`${portal}/${presenter}.json`);
-
-  if (portalRequest.status !== 200) {
-    return notFound();
+  const presenterInfo = await getPresenterInfo(presenter);
+  if (presenterInfo.ok === false) {
+    if (presenterInfo.value.statusCode === 404) {
+      return notFound();
+    } else {
+      return invalidRequest('Invalid response from portal');
+    }
   }
 
-  const data = (await portalRequest.json()) as unknown;
+  const data = presenterInfo.value;
 
-  if (!isVeypearResponse(data)) {
-    return invalidRequest('Invalid response from portal');
-  }
-
-  const paylaod = { iss: jwtAudience, aud: jwtAudience, sub: presenter, name: data.name };
+  const paylaod = {
+    iss: jwtAudience,
+    aud: jwtAudience,
+    sub: presenter,
+    name: data.name,
+  };
 
   return response({
     ok: true,
     name: data.name,
+    presentations: data.presentations.map((presentation) => ({
+      pk: presentation.pk,
+      name: presentation.name,
+    })),
     token: sign(paylaod, jwtPrivateKey, { expiresIn: '24h' }),
   });
-};
-
-const parseBody = (body: string | undefined): unknown | undefined => {
-  if (body === undefined) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(body) as unknown;
-  } catch (err) {
-    console.log('Failed to parse body', err);
-
-    return undefined;
-  }
 };
 
 export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
@@ -118,27 +130,58 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
 
   const body = parseBody(event.body);
 
-  if (!isBeginBody(body, 'body') || body.presentationTitle.trim().length === 0 || body.fileName.trim().length === 0) {
+  if (!isBeginBody(body, 'body') || body.fileName.trim().length === 0) {
+    return invalidRequest();
+  }
+
+  const presenterInfo = await getPresenterInfo(decodedToken.sub);
+  if (presenterInfo.ok === false) {
+    return accessDenied();
+  }
+
+  const presentation = presenterInfo.value.presentations.find(
+    (presentation) => presentation.pk === body.presentationId,
+  );
+
+  if (presentation === undefined) {
     return invalidRequest();
   }
 
   const version = Date.now();
-  const presenterName = sanitizeFileNames(decodedToken.name);
-  const presentationTitle = sanitizeFileNames(body.presentationTitle);
+  const presenterName = sanitizeFileNames(presenterInfo.value.name);
 
-  const objectName = `${presenterName}-${presentationTitle}-${version}${extname(body.fileName)}`;
+  const objectName = `${presenterName}/${presentation.slug}-${version}${extname(body.fileName)}`;
 
-  const { UploadId } = await client.createMultipartUpload({ Bucket: bucket, Key: objectName }).promise();
+  const { UploadId } = await client
+    .createMultipartUpload({
+      Bucket: bucket,
+      Key: objectName,
+      Metadata: {
+        presenterUuid: presenterInfo.value.uuid,
+        presenterName: presenterInfo.value.name,
+        presentationId: `${presentation.pk}`,
+      },
+    })
+    .promise();
+
+  const tokenStatement = {
+    iss: jwtAudience,
+    aud: jwtAudience,
+    sub: UploadId,
+    objectName: objectName,
+    uuid: presenterInfo.value.uuid,
+    ep: body.presentationId,
+  };
 
   return response({
     ok: true,
-    token: sign({ iss: jwtAudience, aud: jwtAudience, sub: UploadId, objectName: objectName }, jwtPrivateKey, {
+    token: sign(tokenStatement, jwtPrivateKey, {
       expiresIn: '24h',
     }),
   });
 };
 
-export const signUploadURLs: APIGatewayProxyHandlerV2 = async (event, context) => {
+export const getUploadURL: APIGatewayProxyHandlerV2 = async (event, context) => {
   const token = (event.headers.authorization || '').substring('Bearer '.length);
   let decodedToken;
   try {
@@ -159,32 +202,19 @@ export const signUploadURLs: APIGatewayProxyHandlerV2 = async (event, context) =
 
   const body = parseBody(event.body);
 
-  if (!isSignBody(body, 'body') || body.parts === 0) {
+  if (!isSignBody(body, 'body')) {
     return invalidRequest();
   }
 
-  const promises = [];
+  const signedURL = await client.getSignedUrlPromise('uploadPart', {
+    Bucket: bucket,
+    Key: decodedToken.objectName,
+    Expires: 30 * 60, // 30 minutes
+    UploadId: decodedToken.sub,
+    PartNumber: body.partNumber + 1,
+  });
 
-  const start = body.start || 0;
-  const parts = start + body.parts;
-
-  for (let i = start || 0; i < parts; i++) {
-    promises.push(
-      client.getSignedUrlPromise('uploadPart', {
-        Bucket: bucket,
-        Key: decodedToken.objectName,
-        Expires: 30 * 60, // 30 minutes
-        UploadId: decodedToken.sub,
-        PartNumber: i + 1,
-      }),
-    );
-  }
-
-  const signedURLs = await Promise.all(promises);
-
-  console.log('Signed URLs:', signedURLs);
-
-  return response({ ok: true, signedURLs });
+  return response({ ok: true, partURL: signedURL });
 };
 
 export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
@@ -268,85 +298,3 @@ export const abandonUpload: APIGatewayProxyHandlerV2 = async (event, context) =>
 
   return response({ ok: true });
 };
-
-// import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
-// import cors from 'cors';
-
-// const app = express();
-
-// app.use(cors());
-
-// app.use(express.json()); //Used to parse JSON bodies
-
-// interface AsyncRequestResponse<ResBody> {
-//   status?: number;
-//   body: ResBody;
-// }
-
-// type AsyncRequestHandler<Params, ResBody = unknown> = (
-//   req: ExpressRequest<Params, ResBody, unknown>,
-// ) => Promise<AsyncRequestResponse<ResBody>>;
-
-// const asyncHandler = <Params = { [key: string]: string }, ResBody = unknown>(
-//   fn: AsyncRequestHandler<Params, ResBody>,
-// ) => (req: ExpressRequest<Params, ResBody>, res: ExpressResponse, next: NextFunction) => {
-//   fn(req)
-//     .then(({ status, body }) => {
-//       if (status !== undefined) {
-//         res.status(status);
-//       }
-//       res.json(body);
-//     })
-//     .catch(next);
-// };
-
-// app.post('/portal/:presenter', asyncHandler(async ({ params: { presenter } }) => {
-//  const response = await presenterInfo({ pathParameters: { presenter }});
-//     return { status: response.statusCode, body: JSON.parse(response.body) };
-//   }),
-// );
-
-// app.post(
-//   '/begin',
-//   asyncHandler(async (req) => {
-//      beginUpload({ headers: { authorization: req.headers.authoriztion }, body: JSON.stringify(req.body) })
-//   }),
-// );
-
-// app.post(
-//   '/sign',
-//   asyncHandler(async (req) => {
-//      signUploadURLs({ headers: { authorization: req.headers.authoriztion }, body: JSON.stringify(req.body) })
-//   }),
-// );
-
-// app.post(
-//   '/finish',
-//   asyncHandler(async (req) => {
-//      finishUpload({ headers: { authorization: req.headers.authoriztion }, body: JSON.stringify(req.body) })
-//   }),
-// );
-
-// app.post(
-//   '/abandon',
-//   asyncHandler(async (req) => {
-//   }),
-// );
-
-// app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-//   res.status(404).json({
-//     ok: false,
-//     error: 'Not found',
-//   });
-// });
-
-// app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-//   console.log('Error', err);
-
-//   res.status(500).json({
-//     ok: false,
-//     error: 'Internal server errror',
-//   });
-// });
-
-// app.listen(3000);
