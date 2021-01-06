@@ -289,7 +289,7 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
       })
       .promise();
 
-    await notifyPortalUploadFinished(
+    const uploadFinished = await notifyPortalUploadFinished(
       decodedToken.uuid,
       decodedToken.ep,
       `s3://${encodeURIComponent(bucket)}/${objectName}`,
@@ -301,7 +301,7 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
       },
     );
 
-    return response({ ok: true });
+    return response({ ok: true, uploadFinished });
   } catch (err) {
     console.log('Unable to complete upload:', err);
     return response({ ok: false, error: 'Unable to complete upload.' }, 500);
