@@ -5,7 +5,7 @@ import {
   isDecodedBeginJWT,
   isDecodedUploadJWT,
   isFinishBody,
-  isSignBody,
+  isUploadURLBody,
   isVeypearResponse,
 } from './FinishBody.guard';
 import fetch from 'node-fetch';
@@ -139,9 +139,7 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
     return accessDenied();
   }
 
-  const presentation = presenterInfo.value.presentations.find(
-    (presentation) => presentation.pk === body.presentationId,
-  );
+  const presentation = presenterInfo.value.presentations.find((presentation) => presentation.pk === body.episode);
 
   if (presentation === undefined) {
     return invalidRequest();
@@ -159,7 +157,7 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
       Metadata: {
         presenterUuid: presenterInfo.value.uuid,
         presenterName: presenterInfo.value.name,
-        presentationId: `${presentation.pk}`,
+        episode: `${presentation.pk}`,
       },
     })
     .promise();
@@ -170,7 +168,7 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
     sub: UploadId,
     objectName: objectName,
     uuid: presenterInfo.value.uuid,
-    ep: body.presentationId,
+    ep: body.episode,
   };
 
   return response({
@@ -202,7 +200,7 @@ export const getUploadURL: APIGatewayProxyHandlerV2 = async (event, context) => 
 
   const body = parseBody(event.body);
 
-  if (!isSignBody(body, 'body')) {
+  if (!isUploadURLBody(body, 'body')) {
     return invalidRequest();
   }
 

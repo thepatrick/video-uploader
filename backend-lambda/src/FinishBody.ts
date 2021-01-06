@@ -5,12 +5,12 @@ interface Part {
 
 /** @see {isBeginBody} ts-auto-guard:type-guard */
 export interface BeginBody {
-  presentationId: number;
+  episode: number;
   fileName: string;
 }
 
-/** @see {isSignBody} ts-auto-guard:type-guard */
-export interface SignBody {
+/** @see {isUploadURLBody} ts-auto-guard:type-guard */
+export interface UploadURLBody {
   partNumber: number;
 }
 
