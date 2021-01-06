@@ -235,7 +235,8 @@ const notifyPortalUploadFinished = async (
   });
 
   if (!(portalRequest.status >= 200 && portalRequest.status < 300)) {
-    return failure({ statusCode: 400, message: 'Invalid response from veyepar portal' });
+    const body = await portalRequest.text();
+    return failure({ statusCode: portalRequest.status, message: 'Invalid response from veyepar portal', body });
   }
 
   const data = (await portalRequest.json()) as unknown;
