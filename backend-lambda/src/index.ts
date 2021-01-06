@@ -158,6 +158,7 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
         presenterUuid: presenterInfo.value.uuid,
         presenterName: presenterInfo.value.name,
         episode: `${presentation.pk}`,
+        title: presentation.name,
       },
     })
     .promise();
@@ -215,6 +216,34 @@ export const getUploadURL: APIGatewayProxyHandlerV2 = async (event, context) => 
   return response({ ok: true, partURL: signedURL });
 };
 
+const notifyPortalUploadFinished = async (
+  presenter: string,
+  episode: number,
+  prerecordUrl: string,
+  prerecordPayload: unknown,
+): Promise<Result<HTTPFailure, unknown>> => {
+  const portalRequest = await fetch(`${portal}/upload/`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      presenter,
+      episode,
+      prerecord_url: prerecordUrl,
+      prerecord_payload: JSON.stringify(prerecordPayload),
+    }),
+  });
+
+  if (!(portalRequest.status >= 200 && portalRequest.status < 300)) {
+    return failure({ statusCode: 400, message: 'Invalid response from veyepar portal' });
+  }
+
+  const data = (await portalRequest.json()) as unknown;
+
+  return success(data);
+};
+
 export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
   const token = (event.headers.authorization || '').substring('Bearer '.length);
   let decodedToken;
@@ -253,6 +282,26 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
         MultipartUpload: { Parts: body.parts },
       })
       .promise();
+
+    const { ContentLength, Metadata } = await client
+      .headObject({
+        Bucket: bucket,
+        Key: objectName,
+      })
+      .promise();
+
+    await notifyPortalUploadFinished(
+      decodedToken.uuid,
+      decodedToken.ep,
+      `s3://${encodeURIComponent(bucket)}/${objectName}`,
+      {
+        uploadId: uploadId,
+        parts: body.parts.length,
+        contentLength: ContentLength,
+        metadata: Metadata,
+      },
+    );
+
     return response({ ok: true });
   } catch (err) {
     console.log('Unable to complete upload:', err);
