@@ -6,8 +6,9 @@ import { accessDenied, invalidRequest, response } from '../helpers/response';
 import { notifyPortalUploadFinished } from '../portal-api';
 import { bucket, jwtAudience, jwtPrivateKey } from '../helpers/config';
 import { client } from '../s3client';
+import { catchErrors } from './catchErrors';
 
-export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
+export const finishUpload: APIGatewayProxyHandlerV2 = catchErrors(async (event, context) => {
   const token = (event.headers.authorization || '').substring('Bearer '.length);
   let decodedToken;
   try {
@@ -73,4 +74,4 @@ export const finishUpload: APIGatewayProxyHandlerV2 = async (event, context) => 
     console.log('Unable to complete upload:', err);
     return response({ ok: false, error: 'Unable to complete upload.' }, 500);
   }
-};
+});

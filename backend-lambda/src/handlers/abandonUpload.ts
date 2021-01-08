@@ -4,8 +4,9 @@ import { verify } from 'jsonwebtoken';
 import { accessDenied, response } from '../helpers/response';
 import { bucket, jwtAudience, jwtPrivateKey } from '../helpers/config';
 import { client } from '../s3client';
+import { catchErrors } from './catchErrors';
 
-export const abandonUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
+export const abandonUpload: APIGatewayProxyHandlerV2 = catchErrors(async (event, context) => {
   const token = (event.headers.authorization || '').substring('Bearer '.length);
   let decodedToken;
   try {
@@ -40,4 +41,4 @@ export const abandonUpload: APIGatewayProxyHandlerV2 = async (event, context) =>
   }
 
   return response({ ok: true });
-};
+});

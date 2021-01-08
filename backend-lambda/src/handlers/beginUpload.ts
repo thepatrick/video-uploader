@@ -8,8 +8,9 @@ import { accessDenied, invalidRequest, response } from '../helpers/response';
 import { getPresenterInfo } from '../portal-api';
 import { bucket, jwtAudience, jwtPrivateKey } from '../helpers/config';
 import { client } from '../s3client';
+import { catchErrors } from './catchErrors';
 
-export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
+export const beginUpload: APIGatewayProxyHandlerV2 = catchErrors(async (event) => {
   const token = (event.headers.authorization || '').substring('Bearer '.length);
   let decodedToken;
   try {
@@ -54,7 +55,7 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
       Key: objectName,
       Metadata: {
         presenterUuid: presenterInfo.value.uuid,
-        presenterName: presenterInfo.value.name,
+        presenterName: presenterInfo.value.name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
         episode: `${presentation.pk}`,
       },
     })
@@ -77,4 +78,4 @@ export const beginUpload: APIGatewayProxyHandlerV2 = async (event, context) => {
       },
     ),
   });
-};
+});

@@ -5,8 +5,9 @@ import { parseBody } from '../helpers/parseBody';
 import { accessDenied, invalidRequest, response } from '../helpers/response';
 import { bucket, jwtAudience, jwtPrivateKey } from '../helpers/config';
 import { client } from '../s3client';
+import { catchErrors } from './catchErrors';
 
-export const getUploadURL: APIGatewayProxyHandlerV2 = async (event, context) => {
+export const getUploadURL: APIGatewayProxyHandlerV2 = catchErrors(async (event) => {
   const token = (event.headers.authorization || '').substring('Bearer '.length);
   let decodedToken;
   try {
@@ -39,4 +40,4 @@ export const getUploadURL: APIGatewayProxyHandlerV2 = async (event, context) => 
   });
 
   return response({ ok: true, partURL: signedURL });
-};
+});
