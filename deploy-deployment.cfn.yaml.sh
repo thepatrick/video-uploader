@@ -10,7 +10,7 @@ aws cloudformation deploy \
   --parameter-override \
     "HostedZoneId=$HOSTED_ZONE_ID" \
     "FrontendDomain=$FRONTEND_DOMAIN" \
-    "BackendDomain=$BACKEND_DOMAIN" \
+    "SecondDomain=$SECOND_DOMAIN" \
     "FrontendWebsiteCertificate=$FRONTEND_WEBSITE_CERTIFICATE" \
     "BackendJWTAudience=$BACKEND_JWT_AUDIENCE" \
     "BackendLambdaS3Bucket=$BACKEND_LAMBDA_S3_BUCKET" \
