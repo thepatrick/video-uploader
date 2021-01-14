@@ -10,6 +10,8 @@ Parameters:
     Type: String
   BackendDomain:
     Type: String
+  SecondDomain:
+    Type: String
 
 Resources:
   Certificate:
@@ -25,7 +27,22 @@ Resources:
       - !Sub "${BackendDomain}"
       ValidationMethod: "DNS"
 
+  Certificate2:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties:
+      DomainName: !Sub "${FrontendDomain}"
+      DomainValidationOptions:
+        - DomainName: !Sub "${FrontendDomain}"
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub "${BackendDomain}"
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub "${SecondDomain}"
+          HostedZoneId: !Ref HostedZoneId
+      SubjectAlternativeNames:
+      - !Sub "${BackendDomain}"
+      - !Sub "${SecondDomain}"
+      ValidationMethod: "DNS"
 
 Outputs:
   Certificate:
-    Value: !Ref "Certificate"
+    Value: !Ref "Certificate2"
