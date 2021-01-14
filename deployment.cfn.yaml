@@ -8,7 +8,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
   FrontendDomain:
     Type: String
-  BackendDomain:
+  SecondDomain:
     Type: String
   FrontendWebsiteCertificate:
     Type: String
@@ -211,6 +211,7 @@ Resources:
         AllowOrigins:
         - "http://localhost:1234"
         - !Sub "https://${FrontendDomain}"
+        - !Sub "https://${SecondDomain}"
 
   BackendAPIDeployment:
     Type: AWS::ApiGatewayV2::Deployment
@@ -368,6 +369,7 @@ Resources:
       DistributionConfig:
         Aliases:
         - !Ref FrontendDomain
+        - !Ref SecondDomain
         CacheBehaviors:
         - AllowedMethods:
           - "GET"
@@ -444,6 +446,26 @@ Resources:
         HostedZoneId: "Z2FDTNDATAQYW2"
       HostedZoneId: !Ref "HostedZoneId"
       Name: !Ref "FrontendDomain"
+      Type: "AAAA"
+
+  SecondDNSIPv4:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt "FrontendDistribution.DomainName"
+        HostedZoneId: "Z2FDTNDATAQYW2"
+      HostedZoneId: !Ref "HostedZoneId"
+      Name: !Ref "SecondDomain"
+      Type: "A"
+
+  SecondDNSIPv6:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt "FrontendDistribution.DomainName"
+        HostedZoneId: "Z2FDTNDATAQYW2"
+      HostedZoneId: !Ref "HostedZoneId"
+      Name: !Ref "SecondDomain"
       Type: "AAAA"
 
 Outputs:

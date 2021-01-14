@@ -11,6 +11,7 @@ aws cloudformation deploy \
     "HostedZoneId=$HOSTED_ZONE_ID" \
     "FrontendDomain=$FRONTEND_DOMAIN" \
     "BackendDomain=$BACKEND_DOMAIN" \
+    "SecondDomain=$SECOND_DOMAIN"
 
 certificate=$(aws cloudformation describe-stacks --stack-name uploader-certificate --query 'Stacks[0].Outputs[?OutputKey==`Certificate`].OutputValue' --output text)
 
