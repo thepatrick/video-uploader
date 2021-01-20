@@ -2,19 +2,33 @@ import Mux from '@mux/mux-node';
 import { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { SSM } from 'aws-sdk';
 import { notFound, response } from '../helpers/response';
+import { catchErrors } from './catchErrors';
 
-export const getStream: APIGatewayProxyHandlerV2 = async (event, context) => {
+const maybeGetMuxTokenSecret = async (muxTokenId: string) => {
+  const ssm = new SSM();
+
+  try {
+    const muxTokenSecretParameter = await ssm
+      .getParameter({ Name: `/multiview/mux/${muxTokenId}`, WithDecryption: true })
+      .promise();
+
+    const muxTokenSecret = muxTokenSecretParameter.Parameter?.Value;
+
+    return muxTokenSecret;
+  } catch (err) {
+    console.log(`Error fetching secret ${muxTokenId}: ${(err as Error).message}`, err);
+
+    return undefined;
+  }
+};
+
+export const getStream: APIGatewayProxyHandlerV2 = catchErrors(async (event, context) => {
   const muxTokenId = event.pathParameters?.muxTokenId;
   if (muxTokenId === undefined || muxTokenId.length === 0) {
     return notFound();
   }
 
-  const ssm = new SSM();
-
-  const muxTokenSecretParameter = await ssm
-    .getParameter({ Name: `/multiview/mux/${muxTokenId}`, WithDecryption: true })
-    .promise();
-  const muxTokenSecret = muxTokenSecretParameter.Parameter?.Value;
+  const muxTokenSecret = await maybeGetMuxTokenSecret(muxTokenId);
 
   if (!muxTokenSecret) {
     console.log('No secret found for ' + muxTokenId);
@@ -58,4 +72,4 @@ export const getStream: APIGatewayProxyHandlerV2 = async (event, context) => {
     online: true,
     stream: streamURL,
   });
-};
+});
