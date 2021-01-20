@@ -86,7 +86,7 @@ Resources:
   CanReadFromSSM:
     Type: "AWS::IAM::Policy"
     Properties:
-      PolicyName: "CanWriteToVideoUploads"
+      PolicyName: "CanReadFromSSM"
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
