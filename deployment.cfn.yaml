@@ -245,6 +245,7 @@ Resources:
         - "POST"
         AllowOrigins:
         - "http://localhost:1234"
+        - "https://nextdayvideo.com"
         - !Sub "https://${FrontendDomain}"
         - !Sub "https://${SecondDomain}"
 
