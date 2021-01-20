@@ -126,9 +126,6 @@ Resources:
       Role: !GetAtt "BackendLambdaRole.Arn"
       Runtime: "nodejs12.x"
       Timeout: 25
-      Environment:
-        Variables:
-          AWS_REGION: !Ref AWS::Region
 
   BackendBeginUploadInfoFn:
     Type: AWS::Lambda::Function
