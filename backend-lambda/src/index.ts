@@ -3,3 +3,4 @@ export { beginUpload } from './handlers/beginUpload';
 export { getUploadURL } from './handlers/getUploadURL';
 export { finishUpload } from './handlers/finishUpload';
 export { abandonUpload } from './handlers/abandonUpload';
+export { getStream } from './handlers/getStream';

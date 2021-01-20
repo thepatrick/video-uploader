@@ -82,6 +82,22 @@ Resources:
           - !Sub "arn:aws:s3:::${VideoUploads}/*"
       Roles:
       - !Ref "BackendLambdaRole"
+  
+  CanReadFromSSM:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "CanWriteToVideoUploads"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Action:
+          - "ssm:GetParameters"
+          Resource:
+          - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/multiview/mux/*"
+      Roles:
+      - !Ref "BackendLambdaRole"
+
 
   BackendPresenterInfoFn:
     Type: AWS::Lambda::Function
@@ -99,6 +115,20 @@ Resources:
           UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
           UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
           UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
+
+  BackendGetStreamFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BackendLambdaS3Bucket
+        S3Key: !Ref BackendLambdaS3Key
+      Handler: src/index.getStream
+      Role: !GetAtt "BackendLambdaRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 25
+      Environment:
+        Variables:
+          AWS_REGION: !Ref AWS::Region
 
   BackendBeginUploadInfoFn:
     Type: AWS::Lambda::Function
@@ -194,6 +224,7 @@ Resources:
             - !GetAtt BackendGetUploadURLFn.Arn
             - !GetAtt BackendFinishUploadFn.Arn
             - !GetAtt BackendAbandonUploadFn.Arn
+            - !GetAtt BackendGetStreamFn.Arn
 
   BackendAPI:
     Type: AWS::ApiGatewayV2::Api
@@ -230,6 +261,27 @@ Resources:
       ApiId: !Ref BackendAPI
       StageName: "api"
       AutoDeploy: true
+
+  BackendGetStreamIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BackendAPI
+      Description: "Get Stream"
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt "BackendAPIRole.Arn"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      IntegrationMethod: "POST"
+      IntegrationType: "AWS_PROXY"
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendGetStreamFn.Arn}/invocations"
+
+  BackendGetStreamRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BackendAPI
+      RouteKey: GET /stream/{muxTokenId}
+      Target: !Sub "integrations/${BackendGetStreamIntegration}"
 
   BackendPresenterInfoIntegration:
     Type: AWS::ApiGatewayV2::Integration
