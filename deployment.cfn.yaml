@@ -126,6 +126,12 @@ Resources:
       Role: !GetAtt "BackendLambdaRole.Arn"
       Runtime: "nodejs12.x"
       Timeout: 25
+      Environment:
+        Variables:
+          UPLOADER_BUCKET: !Ref "VideoUploads"
+          UPLOADER_JWT_PRIVATE_KEY: !Ref BackendJWTPrivateKey
+          UPLOADER_JWT_AUDIENCE: !Ref BackendJWTAudience
+          UPLOADER_PORTAL: !Ref "VeypearPresenterBase"
 
   BackendBeginUploadInfoFn:
     Type: AWS::Lambda::Function
