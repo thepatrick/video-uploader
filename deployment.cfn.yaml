@@ -71,7 +71,7 @@ Resources:
   CanWriteToVideoUploads:
     Type: "AWS::IAM::Policy"
     Properties:
-      PolicyName: "CanWriteToVideoUploads"
+      PolicyName: "WriteToVideoUploads"
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
