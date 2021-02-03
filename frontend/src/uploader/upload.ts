@@ -80,13 +80,16 @@ export const upload = async (
       console.log('completedParts', completedParts);
     }
     const completeUploadResponse = await completeUpload(uploadToken, completedParts);
+
     if (isAPIError(completeUploadResponse)) {
-      throw new Error(completeUploadResponse.error);
+      throw new Error('Unable to complete upload.');
     }
   } catch (err) {
     if (debug) {
       console.log('Abandoning because', err);
     }
     await abandonUpload(uploadToken);
+
+    throw err;
   }
 };
