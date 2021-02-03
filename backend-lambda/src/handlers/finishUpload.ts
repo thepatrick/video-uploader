@@ -33,7 +33,7 @@ export const finishUpload: APIGatewayProxyHandlerV2 = catchErrors(async (event, 
   const body = parseBody(event.body, isFinishBody);
 
   if (body === undefined || body.parts.length === 0) {
-    console.log('Body is not valid', body);
+    console.log('Body is not valid', event.body);
     return invalidRequest();
   }
 

@@ -19,7 +19,7 @@ export const uploadPart = async (
   const etag = (output.headers as { etag: string }).etag;
 
   if (debug) {
-    console.log(`Part #${partNumber} done.`);
+    console.log(`Part #${partNumber} done. Got headers:`, output.headers);
   }
 
   return { ETag: etag, PartNumber: partNumber + 1 };
