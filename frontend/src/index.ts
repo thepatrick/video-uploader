@@ -23,13 +23,6 @@ if (process.env.SENTRY_DSN) {
     tracesSampleRate: 0,
     release: `video-uploader@${process.env.RELEASE}`,
     environment: location.host,
-    beforeSend(event, hint) {
-      // Check if it is an exception, and if so, show the report dialog
-      if (event.exception) {
-        showReportDialog({ eventId: event.event_id });
-      }
-      return event;
-    },
   });
 }
 
