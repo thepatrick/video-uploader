@@ -14,11 +14,14 @@ import { setHidden, SetHidden } from './setHidden';
 import { createUploadFile } from './createUploadFile';
 import { getPortalDetails, isAPIError } from './uploader/apiCalls';
 
+console.log('process.env.SENTRY_DSN', process.env.SENTRY_DSN);
+
 if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     integrations: [new Integrations.BrowserTracing()],
     tracesSampleRate: 0,
+    release: `video-uploader@${process.env.RELEASE}`,
   });
 }
 
@@ -110,11 +113,12 @@ const setup = async () => {
     setFormBeingProcessed(false);
     setSpinnerHidden(true);
   } catch (error) {
+    Sentry.captureException(error);
     showAlert((error as Error).message, 'danger');
     setSpinnerHidden(true);
   }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  void setup();
+  setup().catch((err) => Sentry.captureException(err));
 });

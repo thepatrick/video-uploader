@@ -181,6 +181,7 @@ jobs:
       with:
         envkey_AWS_UPLOAD_API_SERVER: /api
         envkey_SENTRY_DSN: https://68da6aa779154e93953d4a75062f8b2e@o517038.ingest.sentry.io/5624259
+        envkey_RELEASE: $GITHUB_SHA
         file_name: frontend/.env
 
     - name: Build and push to S3

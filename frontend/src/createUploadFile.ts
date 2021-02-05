@@ -2,6 +2,7 @@ import { ProgressBar } from './ProgressBar';
 import { SetHidden } from './setHidden';
 import { ShowAlert } from './createShowAlert';
 import { upload } from './uploader/upload';
+import * as Sentry from '@sentry/browser';
 
 export const createUploadFile = (
   progressBar: ProgressBar,
@@ -29,9 +30,16 @@ export const createUploadFile = (
     if (debug) {
       console.error('Error', error);
     }
+    Sentry.captureException(error, {
+      tags: {
+        episode: `${episode}`,
+        fileName: file.name,
+      },
+    });
     showAlert((error as Error).message, 'danger');
     setFormBeingProcessed(false);
     setSpinnerHidden(true);
     progressBar.setHidden(true);
   }
 };
+``;

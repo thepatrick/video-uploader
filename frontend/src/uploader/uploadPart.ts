@@ -18,6 +18,10 @@ export const uploadPart = async (
 
   const etag = (output.headers as { etag: string }).etag;
 
+  if (!etag) {
+    throw new Error(`No etag returned with part ${partNumber}. Headers: ${JSON.stringify(output.headers)}`);
+  }
+
   if (debug) {
     console.log(`Part #${partNumber} done. Got headers:`, output.headers);
   }
