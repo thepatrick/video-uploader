@@ -5,11 +5,22 @@ import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.css'; // Import precompiled Bootstrap css
 import './css/frontend.css';
 
+import * as Sentry from '@sentry/browser';
+import { Integrations } from '@sentry/tracing';
+
 import { createShowAlert } from './createShowAlert';
 import { createProgressBar } from './ProgressBar';
 import { setHidden, SetHidden } from './setHidden';
 import { createUploadFile } from './createUploadFile';
 import { getPortalDetails, isAPIError } from './uploader/apiCalls';
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [new Integrations.BrowserTracing()],
+    tracesSampleRate: 0,
+  });
+}
 
 const setup = async () => {
   const presenterInput = <HTMLInputElement>document.getElementById('presenter-name');

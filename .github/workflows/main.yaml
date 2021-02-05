@@ -9,7 +9,7 @@ env:
   HOSTED_ZONE_ID: Z09102521YXWQT2ZKMPP7
   FRONTEND_DOMAIN: lca2021-presenter.aws.nextdayvideo.com.au
   BACKEND_DOMAIN: lca2021-presenter-api.aws.nextdayvideo.com.au
-  SECOND_DOMAIN: upload.aws.nextdayvideo.com.au 
+  SECOND_DOMAIN: upload.aws.nextdayvideo.com.au
 
 jobs:
   deploy-backend-bucket:
@@ -180,6 +180,7 @@ jobs:
       uses: SpicyPizza/create-envfile@v1
       with:
         envkey_AWS_UPLOAD_API_SERVER: /api
+        envkey_SENTRY_DSN: https://68da6aa779154e93953d4a75062f8b2e@o517038.ingest.sentry.io/5624259
         file_name: frontend/.env
 
     - name: Build and push to S3
