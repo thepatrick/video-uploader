@@ -6,6 +6,8 @@ export interface PartProgress {
 
 import pLimit from 'p-limit';
 import { abandonUpload, completeUpload, getPartURL, getUploadId, isAPIError } from './apiCalls';
+import { send } from 'process';
+import { addBreadcrumb, Severity } from '@sentry/browser';
 
 const FILE_CHUNK_SIZE = 10_000_000;
 
@@ -43,6 +45,12 @@ export const upload = async (
 ): Promise<void> => {
   const partCounts = Math.ceil(file.size / FILE_CHUNK_SIZE);
 
+  addBreadcrumb({
+    category: 'upload',
+    message: 'Get Upload ID',
+    level: Severity.Info,
+  });
+
   const uploadIdResponse = await getUploadId(token, file.name, episode);
 
   if (isAPIError(uploadIdResponse)) {
@@ -79,14 +87,29 @@ export const upload = async (
     if (debug) {
       console.log('completedParts', completedParts);
     }
+
+    addBreadcrumb({
+      category: 'upload',
+      message: `Uploaded parts ${completedParts.length}`,
+      level: Severity.Info,
+    });
+
     const completeUploadResponse = await completeUpload(uploadToken, completedParts);
+
     if (isAPIError(completeUploadResponse)) {
-      throw new Error(completeUploadResponse.error);
+      addBreadcrumb({
+        category: 'upload',
+        message: `Error completing the upload: ${completeUploadResponse.error}`,
+        level: Severity.Fatal,
+      });
+      throw new Error('Unable to complete upload.');
     }
   } catch (err) {
     if (debug) {
       console.log('Abandoning because', err);
     }
     await abandonUpload(uploadToken);
+
+    throw err;
   }
 };

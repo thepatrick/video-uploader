@@ -5,11 +5,26 @@ import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.css'; // Import precompiled Bootstrap css
 import './css/frontend.css';
 
+import { addBreadcrumb, captureException, init, Severity, showReportDialog } from '@sentry/browser';
+import { Integrations } from '@sentry/tracing';
+
 import { createShowAlert } from './createShowAlert';
 import { createProgressBar } from './ProgressBar';
 import { setHidden, SetHidden } from './setHidden';
 import { createUploadFile } from './createUploadFile';
 import { getPortalDetails, isAPIError } from './uploader/apiCalls';
+
+console.log('process.env.SENTRY_DSN', process.env.SENTRY_DSN);
+
+if (process.env.SENTRY_DSN) {
+  init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [new Integrations.BrowserTracing()],
+    tracesSampleRate: 0,
+    release: `video-uploader@${process.env.RELEASE}`,
+    environment: location.host,
+  });
+}
 
 const setup = async () => {
   const presenterInput = <HTMLInputElement>document.getElementById('presenter-name');
@@ -42,10 +57,22 @@ const setup = async () => {
     const debug = params.has('debug');
     const presenter = params.get('presenter');
     const episode = parseInt(params.get('episode'), 10);
+
+    addBreadcrumb({
+      category: 'setup',
+      message: `Looking for ${presenter} episode ${episode}. Debug is ${debug ? 'on' : 'off'}`,
+      level: Severity.Info,
+    });
+
     const portalDetails = await getPortalDetails(presenter);
 
     if (isAPIError(portalDetails)) {
-      throw new Error(`Could not obtain presenter details: ${portalDetails.error}`);
+      if (portalDetails.error === 'Not found') {
+        showAlert('Presenter not found', 'danger');
+        setSpinnerHidden(true);
+        return;
+      }
+      throw new Error(`Could not obtain presenter (${presenter}) details: ${portalDetails.error}`);
     }
 
     const presentation = portalDetails.presentations.find(({ pk }) => pk === episode);
@@ -69,6 +96,12 @@ const setup = async () => {
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length > 0) {
         fileInput.parentElement.querySelector('label').textContent = fileInput.files[0].name;
+
+        addBreadcrumb({
+          category: 'file',
+          message: 'User picked a file',
+          level: Severity.Info,
+        });
       }
     });
 
@@ -81,6 +114,12 @@ const setup = async () => {
       setFormBeingProcessed(true);
 
       const file = fileInput.files[0];
+
+      addBreadcrumb({
+        category: 'file',
+        message: 'Upload file...',
+        level: Severity.Info,
+      });
 
       await uploadFile(file, episode);
     };
@@ -99,11 +138,12 @@ const setup = async () => {
     setFormBeingProcessed(false);
     setSpinnerHidden(true);
   } catch (error) {
+    captureException(error);
     showAlert((error as Error).message, 'danger');
     setSpinnerHidden(true);
   }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  void setup();
+  setup().catch((err) => captureException(err));
 });
