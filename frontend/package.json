@@ -25,7 +25,7 @@
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.1",
     "@sentry/browser": "^6.1.0",
-    "@sentry/tracing": "^6.1.0",
+    "@sentry/tracing": "^6.18.1",
     "@types/node": "^14.14.16",
     "axios": "^0.21.3",
     "bootstrap": "^4.5.2",
