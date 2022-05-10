@@ -6,7 +6,6 @@ export interface PartProgress {
 
 import pLimit from 'p-limit';
 import { abandonUpload, completeUpload, getPartURL, getUploadId, isAPIError } from './apiCalls';
-import { send } from 'process';
 import { addBreadcrumb, Severity } from '@sentry/browser';
 
 const FILE_CHUNK_SIZE = 10_000_000;
