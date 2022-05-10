@@ -5,7 +5,7 @@ import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.css'; // Import precompiled Bootstrap css
 import './css/frontend.css';
 
-import { addBreadcrumb, captureException, init, Severity, showReportDialog } from '@sentry/browser';
+import { addBreadcrumb, captureException, init, Severity } from '@sentry/browser';
 import { Integrations } from '@sentry/tracing';
 
 import { createShowAlert } from './createShowAlert';
