@@ -42,4 +42,3 @@ export const createUploadFile = (
     progressBar.setHidden(true);
   }
 };
-``;
