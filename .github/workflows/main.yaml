@@ -84,7 +84,7 @@ jobs:
 
     - uses: actions/setup-node@v2
       with:
-        node-version: '12'
+        node-version: '20'
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -158,7 +158,7 @@ jobs:
 
     - uses: actions/setup-node@v2
       with:
-        node-version: '12'
+        node-version: '20'
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
